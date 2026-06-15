@@ -262,7 +262,7 @@ export default function NewSubscription() {
             {products.length === 0 ? (
               <s-paragraph>No products available.</s-paragraph>
           ) : (
-              <div>
+            <div>
                 <s-select 
                     value={selectedId}
                     onChange={(e) => {

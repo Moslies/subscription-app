@@ -160,6 +160,23 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
 
   if (intent === "delete") {
     const response = await admin.graphql(DELETE_MUTATION, { variables: { id } });
+
+    if (!response.ok) {
+      let message = `HTTP ${response.status}: Failed to delete subscription group`;
+      try {
+        const errorBody = (await response.json()) as Record<string, unknown>;
+        const errors = errorBody?.errors;
+        if (errors) {
+          message = Array.isArray(errors)
+            ? errors.map((e: unknown) => (typeof e === "object" && e && "message" in e ? (e as { message: string }).message : String(e))).join(", ")
+            : String(errors);
+        }
+      } catch {
+        // ignore JSON parse errors
+      }
+      return { errors: [{ message }] };
+    }
+
     const json = await response.json();
     const userErrors =
       (json.data as { sellingPlanGroupDelete: { userErrors: { field: string; message: string }[] } })
@@ -300,7 +317,7 @@ export default function SubscriptionDetail() {
               </tr>
             </thead>
             <tbody>
-              {g.sellingPlans.nodes.map((plan: any) => (
+              {g.sellingPlans.nodes.map((plan: { id: string; name: string; options?: string[] }) => (
                 <tr key={plan.id}>
                   <td style={{ padding: "8px", borderBottom: "1px solid #eee" }}>{plan.name}</td>
                   <td style={{ padding: "8px", borderBottom: "1px solid #eee" }}>{plan.options?.join(", ") ?? ""}</td>
@@ -324,7 +341,7 @@ export default function SubscriptionDetail() {
               </tr>
             </thead>
             <tbody>
-              {g.products.nodes.map((product: any) => (
+              {g.products.nodes.map((product: { id: string; title: string; handle: string }) => (
                 <tr key={product.id}>
                   <td style={{ padding: "8px", borderBottom: "1px solid #eee" }}>{product.title}</td>
                   <td style={{ padding: "8px", borderBottom: "1px solid #eee" }}>{product.handle}</td>
@@ -349,30 +366,31 @@ export default function SubscriptionDetail() {
       </s-section>
 
       {availableProducts.length > 0 && (
-        <s-section heading="Add product">
+        <s-section padding="base" heading="Add product">
           <div>
-            <select
+            <s-select
               value={addProductId}
               onChange={(e) => setAddProductId(e.currentTarget.value)}
-              style={{ width: "100%", marginBottom: "8px" }}
             >
-              <option value="">-- Select a product --</option>
-              {availableProducts.map((p: any) => (
-                <option key={p.id} value={p.id}>{p.title}</option>
+              <s-option value="">-- Select a product --</s-option>
+              {availableProducts.map((p: { id: string; title: string }) => (
+                <s-option key={p.id} value={p.id}>{p.title}</s-option>
               ))}
-            </select>
-            <s-button
-              onClick={() => {
-                if (!addProductId) return;
-                const form = new FormData();
-                form.set("intent", "addProducts");
-                form.set("productIds", addProductId);
-                fetcher.submit(form, { method: "POST" });
-                setAddProductId("");
-              }}
-            >
-              Add product
-            </s-button>
+            </s-select>
+            <s-box paddingBlockStart="base">
+              <s-button
+                onClick={() => {
+                  if (!addProductId) return;
+                  const form = new FormData();
+                  form.set("intent", "addProducts");
+                  form.set("productIds", addProductId);
+                  fetcher.submit(form, { method: "POST" });
+                  setAddProductId("");
+                }}
+              >
+                Add product
+              </s-button>
+            </s-box>
           </div>
         </s-section>
       )}

@@ -68,6 +68,7 @@ export default function SubscriptionsIndex() {
                 <th style={{ textAlign: "left", padding: "8px", borderBottom: "1px solid #ddd" }}>Plans</th>
                 <th style={{ textAlign: "left", padding: "8px", borderBottom: "1px solid #ddd" }}>Products</th>
                 <th style={{ textAlign: "left", padding: "8px", borderBottom: "1px solid #ddd" }}>Options</th>
+                <th style={{ textAlign: "left", padding: "8px", borderBottom: "1px solid #ddd" }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -89,6 +90,14 @@ export default function SubscriptionsIndex() {
                   </td>
                   <td style={{ padding: "8px", borderBottom: "1px solid #eee" }}>
                     {group.options?.join(", ") ?? ""}
+                  </td>
+                  <td style={{ padding: "8px", borderBottom: "1px solid #eee" }}>
+                    <s-button
+                      variant="secondary"
+                      onClick={() => navigate(`/app/subscriptions/${encodeURIComponent(group.id)}/edit`)}
+                    >
+                      Edit
+                    </s-button>
                   </td>
                 </tr>
               ))}

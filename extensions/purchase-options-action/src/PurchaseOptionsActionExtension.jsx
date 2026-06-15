@@ -1,5 +1,10 @@
 ﻿import "@shopify/ui-extensions/preact";
 import {useEffect, useState} from 'preact/hooks';
+import { 
+  SELLING_PLAN_GROUP_UPDATE,
+  GET_SELLING_PLAN_GROUP_FOR_PLAN,
+  GET_SELLING_PLAN_GROUP
+ } from './graphql'
 
 const DEFAULT_OPTION = {
   id: '',
@@ -38,12 +43,10 @@ function normalizeOption(option) {
 function parseOptionsFromData(data) {
   const payload = extractPayload(data);
   if (!payload) {
-    console.log('[parseOptionsFromData] payload is falsy, returning DEFAULT_OPTION');
     return [DEFAULT_OPTION];
   }
 
   if (typeof payload.get === 'function') {
-    console.log('[parseOptionsFromData] payload is Map-like, recursing');
     const nested = payload.get('payload') ?? payload.get('sellingPlanGroup') ?? payload.get('options');
     return parseOptionsFromData(nested);
   }
@@ -171,82 +174,9 @@ function buildSellingPlanInput(option, discountType, isCreate) {
   return plan;
 }
 
-const SELLING_PLAN_GROUP_UPDATE = `#graphql
-  mutation SellingPlanGroupUpdate(
-    $id: ID!
-    $input: SellingPlanGroupInput!
-  ) {
-    sellingPlanGroupUpdate(
-      id: $id
-      input: $input
-    ) {
-      sellingPlanGroup {
-        id
-        name
-      }
-      userErrors {
-        field
-        message
-      }
-    }
-  }
-`;
-
-const GET_SELLING_PLAN_GROUP_FOR_PLAN = `#graphql
-  query SellingPlanGroupForPlan($id: ID!) {
-    node(id: $id) {
-      ... on SellingPlan {
-        sellingPlanGroup {
-          id
-        }
-      }
-    }
-  }
-`;
-
-const GET_SELLING_PLAN_GROUP = `#graphql
-  query GetSellingPlanGroup($id: ID!) {
-    sellingPlanGroup(id: $id) {
-      id
-      name
-      merchantCode
-      sellingPlans(first: 50) {
-        nodes {
-          id
-          deliveryPolicy {
-            ... on SellingPlanRecurringDeliveryPolicy {
-              interval
-              intervalCount
-            }
-          }
-          billingPolicy {
-            ... on SellingPlanRecurringBillingPolicy {
-              interval
-              intervalCount
-            }
-          }
-          pricingPolicies {
-            ... on SellingPlanPricingPolicyBase {
-              adjustmentType
-              adjustmentValue {
-                ... on SellingPlanPricingPolicyPercentageValue {
-                  percentage
-                }
-                ... on MoneyV2 {
-                  amount
-                  currencyCode
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-`;
 
 export default function PurchaseOptionsActionExtension() {
-  const {i18n, extension: {target}, close, data} = shopify;
+  const {close, data} = shopify;
   const [merchantCode, setMerchantCode] = useState('');
   const [planName, setPlanName] = useState('');
   const [options, setOptions] = useState([DEFAULT_OPTION]);
@@ -257,9 +187,7 @@ export default function PurchaseOptionsActionExtension() {
   const [sellingPlanGroupId, setSellingPlanGroupId] = useState('');
 
   useEffect(() => {
-    console.log('[PurchaseOptionsAction] raw data:', JSON.stringify(data, null, 2));
     const payload = extractPayload(data);
-    console.log('[PurchaseOptionsAction] extracted payload:', JSON.stringify(payload, null, 2));
 
     const hasFullData = !!(payload?.sellingPlans?.nodes || payload?.sellingPlanGroup?.sellingPlans?.nodes);
 
@@ -276,7 +204,6 @@ export default function PurchaseOptionsActionExtension() {
     const groupId = getGroupIdFromData(payload);
     const sellingPlanId = payload?.sellingPlanId;
     if (!groupId && !sellingPlanId) {
-      console.log('[PurchaseOptionsAction] no group or selling plan ID to query');
       setIsLoading(false);
       return;
     }
@@ -294,7 +221,6 @@ export default function PurchaseOptionsActionExtension() {
           });
           targetGroupId = resolveResp?.data?.node?.sellingPlanGroup?.id;
           if (!targetGroupId) {
-            console.log('[PurchaseOptionsAction] could not resolve selling plan to group');
             setIsLoading(false);
             return;
           }
@@ -316,12 +242,10 @@ export default function PurchaseOptionsActionExtension() {
       }
 
       try {
-        console.log('[PurchaseOptionsAction] fetching group:', targetGroupId);
         const resp = await shopify.query(GET_SELLING_PLAN_GROUP, {
           variables: { id: targetGroupId },
         });
         const group = resp?.data?.sellingPlanGroup;
-        console.log('[PurchaseOptionsAction] fetched group:', JSON.stringify(group, null, 2));
 
         if (!group) {
           setIsLoading(false);
@@ -419,17 +343,6 @@ export default function PurchaseOptionsActionExtension() {
       .map((option) => buildSellingPlanInput(option, 'percentageOff', true));
 
     try {
-      console.log('[PurchaseOptionsAction] saving with variables:', JSON.stringify({
-        id: resolvedGroupId,
-        input: {
-          name: planName.trim(),
-          merchantCode: merchantCode.trim(),
-          sellingPlansToCreate: plansToCreate,
-          sellingPlansToUpdate: plansToUpdate,
-          sellingPlansToDelete: deletedPlanIds,
-        },
-      }, null, 2));
-
       const response = await shopify.query(SELLING_PLAN_GROUP_UPDATE, {
         variables: {
           id: resolvedGroupId,
@@ -442,7 +355,6 @@ export default function PurchaseOptionsActionExtension() {
           },
         },
       });
-      console.log('[PurchaseOptionsAction] save response:', JSON.stringify(response, null, 2));
 
       const userErrors = response?.data?.sellingPlanGroupUpdate?.userErrors ?? [];
 
@@ -492,26 +404,9 @@ export default function PurchaseOptionsActionExtension() {
       
         <s-box paddingBlockEnd="small">
           <s-section heading="Selling plans">
-            
             <s-stack direction="block" gap="base">
               {options.map((option, index) => (
-                <div
-                  key={index}
-                  style={{
-                    border: "1px solid #ddd",
-                    borderRadius: "8px",
-                    padding: "12px",
-                  }}
-                >
-                  <div
-                    key={index}
-                    style={{
-                      border: "1px solid #ddd",
-                      borderRadius: "8px",
-                      padding: "12px",
-                    }}
-                  >
-                  <s-grid gridTemplateColumns="repeat(12, 1fr)" gap="base">
+                <s-grid key={index} gridTemplateColumns="repeat(13, 1fr)" gap="base">
                     <s-grid-item gridColumn="span 4" gridRow="span 1">
                       <s-number-field
                         label="Delivery frequency"
@@ -542,19 +437,19 @@ export default function PurchaseOptionsActionExtension() {
                         onChange={(event) => updateOption(index, 'discount', event.currentTarget.value)}
                       />
                     </s-grid-item>
-                  </s-grid>
-                  </div>
-
-                  {options.length > 1 && (
-                    <s-button
-                      variant="secondary"
-                      onClick={() => removeOption(index)}
-                      disabled={isSaving}
-                    >
-                      🗑️
-                    </s-button>
-                  )}
-                </div>
+                    <s-grid-item gridColumn="auto" gridRow="span 1" paddingBlockStart="large-200">
+                        {options.length > 1 && (
+                          <s-button
+                            variant="tertiary"
+                            accessibilityLabel="Delete delivery option"
+                            onClick={() => removeOption(index)}
+                            disabled={isSaving}
+                            icon="delete"
+                          >
+                          </s-button>
+                        )}
+                    </s-grid-item>
+                </s-grid>
               ))}
               <s-button variant="secondary" onClick={addOption} disabled={isSaving}>
                 + Add delivery option
