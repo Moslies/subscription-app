@@ -184,6 +184,8 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     if (userErrors.length > 0) {
       return { errors: userErrors };
     }
+    // indicate success by returning deleted: true, which the frontend can use to show a toast and redirect
+    window.location.href = "/app/subscriptions";
     return { deleted: true };
   }
 
