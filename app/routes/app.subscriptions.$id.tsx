@@ -167,6 +167,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     if (userErrors.length > 0) {
       return { errors: userErrors };
     }
+    window.location.href = "/app/subscriptions"; // TODO: redirect to previous page
     return { deleted: true };
   }
 
